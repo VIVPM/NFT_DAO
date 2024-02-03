@@ -1,7 +1,4 @@
 # NFT_DAO
-![Dominion DAO Project](./screenshots/0.gif)
-<center><figcaption>Dominion DAO Project</figcaption></center>
-
 ## Technology
 
 This demo uses:
