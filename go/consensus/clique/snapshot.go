@@ -431,26 +431,38 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 				}
 			}
 		}
+
+		var max_address common.Address
+		var min1 int = 999
+		for j := 0; j < len(snap.TallyDelegatedStake); j++ {
+			if snap.TallyDelegatedStake[i].miner_time > min1{
+				min1 = snap.TallyDelegatedStake[i].miner_time
+				max_address = snap.TallyDelegatedStake[i].Owner
+			}
+		}
+
+		snap.StakeSigner = max_address
+		fmt.Println("Miner Selected = ",snap.StakeSigner)
 		//calulate numblocks
 		//for i := 0; i < len(snap.TallyDelegatedStake); i++ {
 		//	snap.TallyDelegatedStake[i].numblocks = snap.TallyDelegatedStake[i].OStakes / 32
 		//}
-		if snap.collision == true {
-			n := rand.Intn(len(snap.TallyDelegatedStake)-0) + 0
-			snap.TallyDelegatedStake[n].sleeptime = 100 * time.Millisecond
-			n = rand.Intn(len(snap.TallyDelegatedStake)-0) + 0
-			snap.TallyDelegatedStake[n].sleeptime = 100 * time.Millisecond
-			snap.collision = false
-		}
+		// if snap.collision == true {
+		// 	n := rand.Intn(len(snap.TallyDelegatedStake)-0) + 0
+		// 	snap.TallyDelegatedStake[n].sleeptime = 100 * time.Millisecond
+		// 	n = rand.Intn(len(snap.TallyDelegatedStake)-0) + 0
+		// 	snap.TallyDelegatedStake[n].sleeptime = 100 * time.Millisecond
+		// 	snap.collision = false
+		// }
 
-		if snap.exponential == true {
-			for i := 0; i < len(snap.TallyDelegatedStake); i++ {
-				n := 2
-				snap.TallyDelegatedStake[i].sleeptime = time.Duration(time.Duration(n) * 100 * time.Millisecond)
-				n = n * 2
-			}
-			snap.exponential = false
-		}
+		// if snap.exponential == true {
+		// 	for i := 0; i < len(snap.TallyDelegatedStake); i++ {
+		// 		n := 2
+		// 		snap.TallyDelegatedStake[i].sleeptime = time.Duration(time.Duration(n) * 100 * time.Millisecond)
+		// 		n = n * 2
+		// 	}
+		// 	snap.exponential = false
+		// }
 
 		/*log.Info("Delegated Nodes")
 		for i := 0; i < len(snap.TallyDelegatedStake); i++ {
