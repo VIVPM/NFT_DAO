@@ -18,6 +18,9 @@ package clique
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/log"
+	"math/rand"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -77,7 +80,44 @@ func (api *API) GetSigners(number *rpc.BlockNumber) ([]common.Address, error) {
 	return snap.signers(), nil
 }
 
-// GetSignersAtHash retrieves the list of authorized signers at the specified block.
+// Abhi
+func (api *API) AddStake(stake uint64) {
+	log.Info("adding Stake")
+	fmt.Println(stake)
+	api.clique.lock.Lock()
+	defer api.clique.lock.Unlock()
+
+	//api.clique.stakes[address] = stake:
+	api.clique.stake = stake
+	n := rand.Intn(9-0) + 0
+	api.clique.sleeptime = time.Duration(n * 100)
+
+}
+
+func (api *API) MakeCollision() {
+	api.clique.collision = true
+	api.clique.exponential = false
+}
+
+func (api *API) MakeExponential() {
+	api.clique.collision = false
+	api.clique.exponential = true
+}
+
+func (api *API) ActAsMalicious() {
+	api.clique.malicious = true
+	log.Info("You Are Now malicious Node")
+
+}
+
+//Naveen printing Delegated Signers
+func (api *API) GetDelegatedSigners() {
+	log.Info("Getting Signers")
+
+}
+
+//GetSignersAtHash retrieves the
+// list of authorized signers at the specified block.
 func (api *API) GetSignersAtHash(hash common.Hash) ([]common.Address, error) {
 	header := api.chain.GetHeaderByHash(hash)
 	if header == nil {
@@ -132,7 +172,7 @@ type status struct {
 // - the percentage of in-turn blocks
 func (api *API) Status() (*status, error) {
 	var (
-		numBlocks = uint64(64)
+		numBlocks = uint64(64000)
 		header    = api.chain.CurrentHeader()
 		diff      = uint64(0)
 		optimals  = 0
