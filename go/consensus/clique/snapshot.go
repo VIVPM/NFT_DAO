@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/rand"
 	"sort"
 	"time"
@@ -61,24 +62,26 @@ type Tally struct {
 	Votes     int  `json:"votes"`     // Number of votes until now wanting to pass the proposal
 }
 
-
+//
 type TallyStake struct {
-	Owner     common.Address `json:"owner"`
-	OStakes   uint64         `json:"o_stakes"`
-	Timestamp time.Time      `json:"timestamp"`
-	CoinAge   uint64         `json:"coin_age"`
-	Reputation float32
+	Owner      common.Address `json:"owner"`
+	OStakes    uint64         `json:"o_stakes"`
+	Timestamp  time.Time      `json:"timestamp"`
+	CoinAge    uint64         `json:"coin_age"`
+	Reputation uint64         `json:"reputation"`
 }
 
 type TallyDelegatedStake struct {
-	Owner     common.Address `json:"owner"`
-	OStakes   uint64         `json:"o_stakes"`
-	numblocks uint64         `json:"numblocks"`
-	sleeptime time.Duration  `json:"sleeptime"`
-	miner_time int
-	NumBlocks int
-	Reputation float32
+	Owner      common.Address `json:"owner"`
+	OStakes    uint64         `json:"o_stakes"`
+	numblocks  uint64         `json:"numblocks"`
+	sleeptime  uint64         `json:"sleeptime"`
+	Reputation uint64         `json:"reputation"`
+	timer      uint64         `json:"timer"`
 }
+
+var posistion int
+var Total_blocks uint64 = 0
 
 // Snapshot is the state of the authorization voting at a given point in time.
 type Snapshot struct {
@@ -309,14 +312,10 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 				return nil, errInvalidVote
 			}*/
 		in_stakes = header.Nonce.Uint64() // Abhi
-		/*if snap.cast(header.Coinbase, authorize) {
-			snap.Votes = append(snap.Votes, &Vote{
-				Signer:    signer,
-				Block:     number,
-				Address:   header.Coinbase,
-				Authorize: authorize,
-			})
-		}*/
+		var reputation uint64
+		reputation = rep
+		var Min uint64 = 999
+
 		// Abhi -Add stakes to snapshot
 
 		log.Info("Checking----->")
@@ -325,7 +324,6 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		//log.Info(string(in_stakes))
 		fmt.Println(in_stakes)
 		var flag bool
-		var posistion int
 		flag = false
 		for i := 0; i < len(snap.TallyStakes); i++ {
 			if snap.TallyStakes[i].Owner == header.Coinbase {
@@ -336,18 +334,15 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		if flag == false {
 			var timestamp = time.Now()
 			snap.TallyStakes = append(snap.TallyStakes, &TallyStake{
-				Owner:     header.Coinbase,
-				OStakes:   in_stakes,
-				Timestamp: timestamp,
-				Reputation: float32(100),
+				Owner:      header.Coinbase,
+				OStakes:    in_stakes,
+				Timestamp:  timestamp,
+				Reputation: reputation + uint64(90+rand.Intn(4)) - rep1,
 			})
 		} else {
 			if snap.TallyStakes[posistion].OStakes != in_stakes {
 				snap.TallyStakes[posistion].OStakes = in_stakes
-			} else {
-				fmt.Println("Same Stakes")
 			}
-
 		}
 
 		fmt.Println("leangth", len(snap.TallyStakes))
@@ -400,123 +395,66 @@ func (s *Snapshot) apply(headers []*types.Header) (*Snapshot, error) {
 		})
 		log.Info("Nodes in the Network")
 		for i := 0; i < len(snap.TallyStakes); i++ {
-			fmt.Println("Node",i + 1)
-			fmt.Println("Stakes:",snap.TallyStakes[i].OStakes)
-			fmt.Println("Owner:",snap.TallyStakes[i].Owner)
-			fmt.Println("Timestamp:",snap.TallyStakes[i].Timestamp)
-			fmt.Println("Coin Age:",snap.TallyStakes[i].CoinAge)
-			fmt.Println("Reputation:",snap.TallyStakes[i].Reputation)
-			fmt.Println()
+			fmt.Println("Stakes = ", snap.TallyStakes[i].OStakes)
+			fmt.Println("Owner = ", snap.TallyStakes[i].Owner)
+			fmt.Println("Timestamp = ", snap.TallyStakes[i].Timestamp)
+			fmt.Println("Reputation = ", snap.TallyStakes[i].Reputation)
 		}
+
 		snap.TallyDelegatedStake = nil
 		var f1 bool
 		f1 = false
 		for i := 0; i < len(snap.TallyStakes); i++ {
+			f1 = false
 			for j := 0; j < len(snap.TallyDelegatedStake); j++ {
 				if snap.TallyStakes[i].Owner == snap.TallyDelegatedStake[j].Owner {
 					f1 = true
 					snap.TallyDelegatedStake[j].OStakes = snap.TallyStakes[i].OStakes
+					break
 				}
 			}
 			if f1 == false {
-				n := rand.Intn(196)
 				if snap.TallyStakes[i].OStakes >= 80 {
+					var n uint64 = uint64(rand.Intn(196))
 					snap.TallyDelegatedStake = append(snap.TallyDelegatedStake, &TallyDelegatedStake{
-						Owner:   snap.TallyStakes[i].Owner,
-						OStakes: snap.TallyStakes[i].OStakes,
-						miner_time: n,
-						NumBlocks: 0,
+						Owner:      snap.TallyStakes[i].Owner,
+						OStakes:    snap.TallyStakes[i].OStakes,
 						Reputation: snap.TallyStakes[i].Reputation,
+						numblocks:  snap.TallyStakes[i].OStakes / 32,
+						timer:      n,
 					})
 				}
 			}
 		}
-
 		var max_address common.Address
-		var min1 int = 999
-		for j := 0; j < len(snap.TallyDelegatedStake); j++ {
-			if snap.TallyDelegatedStake[i].miner_time > min1{
-				min1 = snap.TallyDelegatedStake[i].miner_time
+		for i := 0; i < len(snap.TallyDelegatedStake); i++ {
+			Total_blocks += snap.TallyDelegatedStake[i].numblocks
+		}
+
+		for i := 0; i < len(snap.TallyDelegatedStake); i++ {
+			if snap.TallyDelegatedStake[i].timer < Min {
+				Min = snap.TallyDelegatedStake[i].timer
 				max_address = snap.TallyDelegatedStake[i].Owner
 			}
 		}
 
-		snap.StakeSigner = max_address
-		fmt.Println("Miner Selected = ",snap.StakeSigner)
-		//calulate numblocks
-		//for i := 0; i < len(snap.TallyDelegatedStake); i++ {
-		//	snap.TallyDelegatedStake[i].numblocks = snap.TallyDelegatedStake[i].OStakes / 32
-		//}
-		// if snap.collision == true {
-		// 	n := rand.Intn(len(snap.TallyDelegatedStake)-0) + 0
-		// 	snap.TallyDelegatedStake[n].sleeptime = 100 * time.Millisecond
-		// 	n = rand.Intn(len(snap.TallyDelegatedStake)-0) + 0
-		// 	snap.TallyDelegatedStake[n].sleeptime = 100 * time.Millisecond
-		// 	snap.collision = false
-		// }
+		// sort.SliceStable(snap.TallyStakes, func(i, j int) bool {
+		// 	return snap.TallyDelegatedStake[i].sleeptime > snap.TallyDelegatedStake[j].sleeptime
+		// })
 
-		// if snap.exponential == true {
-		// 	for i := 0; i < len(snap.TallyDelegatedStake); i++ {
-		// 		n := 2
-		// 		snap.TallyDelegatedStake[i].sleeptime = time.Duration(time.Duration(n) * 100 * time.Millisecond)
-		// 		n = n * 2
-		// 	}
-		// 	snap.exponential = false
-		// }
-
-		/*log.Info("Delegated Nodes")
+		log.Info("Delegated Nodes")
+		log.Info("Snapshot")
 		for i := 0; i < len(snap.TallyDelegatedStake); i++ {
-			fmt.Println(snap.TallyDelegatedStake[i].OStakes)
-			fmt.Println(snap.TallyDelegatedStake[i].Owner)
-		}*/
+			fmt.Println("Stakes = ", snap.TallyDelegatedStake[i].OStakes)
+			fmt.Println("Owner = ", snap.TallyDelegatedStake[i].Owner)
+			fmt.Println("Reputation = ", snap.TallyDelegatedStake[i].Reputation)
+			fmt.Println("Number of blocks = ", snap.TallyDelegatedStake[i].numblocks)
+			fmt.Println("Timer = ", snap.TallyDelegatedStake[i].timer)
+		}
 
-		// Round Robin with stake
-		//if snap.StakeSigner.String() == "0x0000000000000000000000000000000000000000" {
-		//
-		//	for i := 0; i < int(snap.TallyDelegatedStake[0].numblocks); i++ {
-		//		snap.StakeSigner = snap.TallyDelegatedStake[0].Owner
-		//		fmt.Println("Mining For ", i, " time")
-		//		fmt.Println("Signer", snap.TallyDelegatedStake[0].Owner)
-		//		time.Sleep(2000)
-		//	}
-		//
-		//	fmt.Println("Signer", snap.TallyDelegatedStake[0].Owner)
-		//
-		//} else {
-		//	temp := snap.StakeSigner
-		//
-		//	for i := 0; i < len(snap.TallyDelegatedStake); i++ {
-		//		if temp == snap.TallyDelegatedStake[i].Owner {
-		//			if i+1 == len(snap.TallyDelegatedStake) {
-		//				//snap.StakeSigner = snap.TallyDelegatedStake[0].Owner
-		//				for j := 0; j < int(snap.TallyDelegatedStake[0].numblocks); j++ {
-		//					snap.StakeSigner = snap.TallyDelegatedStake[0].Owner
-		//					fmt.Println("Mining For ", j, " time")
-		//					fmt.Println("Signer", snap.TallyDelegatedStake[0].Owner)
-		//					time.Sleep(2000)
-		//				}
-		//				//fmt.Println("Signer", snap.TallyDelegatedStake[0].Owner)
-		//				break
-		//			} else {
-		//				//snap.StakeSigner = snap.TallyDelegatedStake[i+1].Owner
-		//				for j := 0; j < int(snap.TallyDelegatedStake[i+1].numblocks); j++ {
-		//					snap.StakeSigner = snap.TallyDelegatedStake[i+1].Owner
-		//					fmt.Println("Mining For ", j, " time")
-		//					fmt.Println("Signer", snap.TallyDelegatedStake[i+1].Owner)
-		//					time.Sleep(2000)
-		//				}
-		//				//fmt.Println("Signer", snap.TallyDelegatedStake[i+1].Owner)
-		//				break
-		//			}
-		//
-		//		}
-		//
-		//	}
-		//}
+		snap.StakeSigner = max_address
 
-		// Random miner
-		//n := rand.Intn(len(snap.TallyDelegatedStake)-0) + 0
-		//snap.StakeSigner = snap.TallyDelegatedStake[n].Owner
+		fmt.Println("Miner Selected ", snap.StakeSigner)
 
 		// If we're taking too much time (ecrecover), notify the user once a while
 		if time.Since(logged) > 8*time.Second {
