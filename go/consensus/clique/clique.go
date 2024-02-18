@@ -46,6 +46,10 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
+var rep1 uint64
+var rep uint64
+var index int = -1
+
 const (
 	checkpointInterval = 1024 // Number of blocks after which to save the vote snapshot to the database
 	inmemorySnapshots  = 128  // Number of recent vote snapshots to keep in memory
@@ -168,10 +172,7 @@ func ecrecover(header *types.Header, sigcache *lru.ARCCache) (common.Address, er
 	return signer, nil
 }
 
-var sum int
-var mined_blocks int
-var miner_index1 int
-var miner_index2 int
+var m1 bool = false
 
 // Clique is the proof-of-authority consensus engine proposed to support the
 // Ethereum testnet following the Ropsten attacks.
@@ -191,6 +192,7 @@ type Clique struct {
 	lock        sync.RWMutex   // Protects the signer fields
 	malicious   bool
 	timetaken   time.Duration
+	reputation  uint64
 	sleeptime   time.Duration
 	acttime     time.Duration
 	collision   bool
@@ -562,6 +564,8 @@ func (c *Clique) Prepare(chain consensus.ChainHeaderReader, header *types.Header
 			}
 		}*/
 		var n types.BlockNonce
+
+		// var n1 types.BlockNonce
 		log.Info("printing stakes from stakes")
 		//fmt.Println(c.stakes[header.Coinbase])
 
@@ -572,6 +576,12 @@ func (c *Clique) Prepare(chain consensus.ChainHeaderReader, header *types.Header
 			log.Info("printing Nonce")
 			fmt.Println(header.Nonce.Uint64())
 		}
+
+		if c.reputation > 0 {
+			rep = c.reputation
+			fmt.Println("Reputation updated")
+		}
+
 		c.lock.RUnlock()
 	}
 	// Set the correct difficulty
@@ -679,116 +689,55 @@ func (c *Clique) Seal(chain consensus.ChainHeaderReader, block *types.Block, res
 	if header.Nonce.Uint64() != 0 && len(block.Transactions()) == 0 {
 		log.Info("sending stakes to others and Transactions are zero")
 		flag = 1
-
-	}
-	for i := 0; i < len(snap.TallyDelegatedStake); i++ {
-		if header.Coinbase == snap.TallyDelegatedStake[i].Owner {
-			snap.TallyDelegatedStake[i].sleeptime = c.sleeptime
-		}
-	}
-
-	if c.collision == true {
-		snap.collision = true
-		snap.exponential = false
-		c.collision = false
-	}
-
-	if c.exponential == true {
-		snap.exponential = true
-		snap.collision = false
-		c.exponential = false
+		fmt.Println(flag)
 	}
 
 	t := time.Now()
 
 	if c.malicious == true {
-		rep := float32((mined_blocks * 6 / 10) + (4 * (mined_blocks / sum) / 10))
-		if rep > float32(100) {
-			rep = float32(100)
+		for i := 0; i < len(snap.TallyDelegatedStake); i++ {
+			if snap.StakeSigner == snap.TallyDelegatedStake[i].Owner {
+				index = i
+				break
+			}
 		}
-		snap.TallyDelegatedStake[miner_index1].Reputation = snap.TallyDelegatedStake[miner_index1].Reputation - rep
-		snap.TallyStakes[miner_index2].Reputation = snap.TallyDelegatedStake[miner_index1].Reputation
-		fmt.Println("before", c.stake)
-		c.stake = c.stake - (c.stake * uint64(rep) / 100)
+		if index != -1 {
+			rep1 = (snap.TallyDelegatedStake[index].numblocks * 6 / 10) + (4 * snap.TallyDelegatedStake[index].numblocks / Total_blocks / 10)
+		}
+		fmt.Println("Before Stakes", c.stake)
+		fmt.Println("Before Reputation = ", c.reputation)
+		c.stake = c.stake - (c.stake * uint64(rep1+4) / 100)
+		c.reputation = c.reputation - (rep1 + 4)
 		fmt.Println("Downgrading This Node")
-		fmt.Println("After Downgrading Node have Reputation", snap.TallyStakes[miner_index2].Reputation)
-		fmt.Println("After", c.stake)
+		fmt.Println("After Stakes", c.stake)
+		fmt.Println("After Reputation = ", c.reputation)
+
 		c.malicious = false
-
-	}
-
-	log.Info("Delegated Nodes")
-	for i := 0; i < len(snap.TallyDelegatedStake); i++ {
-		snap.TallyDelegatedStake[i].NumBlocks = int((8825/100)-(15*snap.TallyDelegatedStake[i].OStakes/100)) + 1
-		sum = sum + snap.TallyDelegatedStake[i].NumBlocks
-		fmt.Println("Delegated Node",i + 1)
-		fmt.Println("Stakes:",snap.TallyDelegatedStake[i].OStakes)
-		fmt.Println("Owner:",snap.TallyDelegatedStake[i].Owner)
-		fmt.Println("Timer:",snap.TallyDelegatedStake[i].miner_time)
-		fmt.Println("Reputation:",snap.TallyDelegatedStake[i].Reputation)
-		fmt.Println()
-	}
-	
-	for i := 0; i < len(snap.TallyDelegatedStake); i++ {
-		if snap.TallyDelegatedStake[i].Owner == c.signer {
-			mined_blocks = snap.TallyDelegatedStake[i].NumBlocks
-			miner_index1 = i
-			break
-		}
-	}
-	
-	for i := 0; i < len(snap.TallyStakes); i++ {
-		if snap.TallyStakes[i].Owner == c.signer {
-			//mined_blocks = snap.TallyStake[i].NumBlocks
-			miner_index2 = i
-			break
-		}
-	}
-	
-	rep1 := float32((mined_blocks * 6 / 10) + (4 * (mined_blocks / sum) / 10))
-	if(rep1 > 100){
-		snap.TallyDelegatedStake[miner_index1].Reputation = float32(100)
-	}else if(snap.TallyDelegatedStake[miner_index1].Reputation < 0){
-		snap.TallyDelegatedStake[miner_index1].Reputation = 0
-	}else{
-		snap.TallyDelegatedStake[miner_index1].Reputation += rep1
 	}
 
 	c.acttime = time.Now().Sub(t)
 	if c.acttime > c.sleeptime {
-		min := 32001
-		miner_index := 0
-		for i := 0; i < len(snap.TallyDelegatedStake); i++ {
-			if snap.TallyDelegatedStake[i].miner_time < min {
-				min = snap.TallyDelegatedStake[i].miner_time
-				miner_index = i
-			}
-		}
-		snap.StakeSigner = header.Coinbase
-		
-		fmt.Println("Miner Selected:", snap.TallyDelegatedStake[miner_index].Owner)
-		
+		// snap.StakeSigner = header.Coinbase
+
 		n := rand.Intn(9-0) + 0
 		c.sleeptime = time.Duration(n * 100)
 		c.acttime = 0
 	}
 
-	if signer != snap.StakeSigner && flag == 0 {
-		//fmt.Println("Signer", snap.StakeSigner)
-		c.timetaken = time.Now().Sub(t)
-		return errUnauthorizedSigner
-
-	} else {
+	if c.signer == snap.StakeSigner {
+		for i := 0; i < len(snap.TallyDelegatedStake); i++ {
+			if snap.StakeSigner == snap.TallyDelegatedStake[i].Owner {
+				index = i
+				break
+			}
+		}
+		if index != -1 {
+			rep1 = (snap.TallyDelegatedStake[index].numblocks * 6 / 10) + (snap.TallyDelegatedStake[index].numblocks / Total_blocks * 4 / 10)
+		}
 		fmt.Println("Time Waited for mining ", c.timetaken)
 		c.timetaken = 0
-		c.stake = c.stake + 50
-		//for i := 0; i < len(snap.TallyStakes); i++ {
-		//	if snap.StakeSigner == snap.TallyStakes[i].Owner {
-		//		snap.TallyStakes[i].OStakes = 10 + snap.TallyStakes[i].OStakes
-		//		fmt.Println(snap.TallyStakes[i].Owner, "Getting Rewards by mining")
-		//	}
-		//}
-
+		c.stake = c.stake + ((c.stake * uint64(rep1+4)) / 100)
+		// c.stake = c.stake + 12
 	}
 
 	// If we're amongst the recent signers, wait for the next block
