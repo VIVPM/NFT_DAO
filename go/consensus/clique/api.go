@@ -94,6 +94,19 @@ func (api *API) AddStake(stake uint64) {
 
 }
 
+func (api *API) AddReputation(reputation uint64) {
+	log.Info("adding Reputation")
+	fmt.Println(reputation)
+	api.clique.lock.Lock()
+	defer api.clique.lock.Unlock()
+
+	//api.clique.stakes[address] = stake:
+	api.clique.reputation = reputation
+	// api.clique.reputation = reputation
+	n := rand.Intn(9-0) + 0
+	api.clique.sleeptime = time.Duration(n * 100)
+}
+
 func (api *API) MakeCollision() {
 	api.clique.collision = true
 	api.clique.exponential = false
