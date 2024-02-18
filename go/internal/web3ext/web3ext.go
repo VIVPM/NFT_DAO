@@ -155,6 +155,16 @@ web3._extend({
 			call: 'clique_actAsMalicious',
 			params: 0
 		}),
+  		new web3._extend.Method({
+			name: 'addStake',
+			call: 'clique_addStake',
+			params: 1
+		}),
+		new web3._extend.Method({
+			name: 'addReputation',
+			call: 'clique_addReputation',
+			params: 1
+		}),
 	],
 	properties: [
 		new web3._extend.Property({
